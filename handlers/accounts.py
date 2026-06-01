@@ -7,7 +7,7 @@ from telebot import types as tg_types
 
 from core.bot_instance import is_admin, main_keyboard
 from core.config import load_config, save_config
-from core.helpers import normalize_proxy
+from core.helpers import normalize_proxy, check_proxy
 import core.playerok_connection as conn
 from core.playerok_auth import send_sign_in_code, confirm_sign_in_code
 
@@ -230,15 +230,43 @@ def _process_pre_login_proxy(b, message):
         cfg["playerok_proxy"] = ""
         save_config(cfg)
         b.send_message(message.chat.id, "✅ Прокси убран.")
-    elif text:
-        normalized = normalize_proxy(text)
-        cfg["playerok_proxy"] = normalized
-        save_config(cfg)
-        if normalized != text:
-            b.send_message(message.chat.id, f"✅ Прокси установлен (автоисправлен):\n`{normalized}`", parse_mode="Markdown")
-        else:
-            b.send_message(message.chat.id, f"✅ Прокси установлен:\n`{normalized}`", parse_mode="Markdown")
-    # Возвращаем к экрану добавления аккаунта
+        _send_add_account(b, message.chat.id)
+        return
+
+    if not text:
+        _send_add_account(b, message.chat.id)
+        return
+
+    normalized = normalize_proxy(text)
+    cfg["playerok_proxy"] = normalized
+    save_config(cfg)
+
+    if normalized != text:
+        b.send_message(message.chat.id, f"🔄 Формат автоисправлен:\n`{normalized}`", parse_mode="Markdown")
+
+    waiting = b.send_message(message.chat.id, "🔍 Проверяю прокси...")
+    result = check_proxy(normalized)
+
+    if result["ok"]:
+        ip = result.get("ip", "?")
+        ms = result.get("ms", "?")
+        b.send_message(
+            message.chat.id,
+            f"✅ *Прокси работает!*\n\n"
+            f"🌐 IP: `{ip}`\n"
+            f"⚡ Скорость: {ms} мс",
+            parse_mode="Markdown",
+        )
+    else:
+        error = result.get("error", "Неизвестная ошибка")
+        b.send_message(
+            message.chat.id,
+            f"❌ *Прокси не работает!*\n\n"
+            f"Ошибка: {error}\n\n"
+            "Прокси сохранён, но рекомендуется заменить.",
+            parse_mode="Markdown",
+        )
+
     _send_add_account(b, message.chat.id)
 
 

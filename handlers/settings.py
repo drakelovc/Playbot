@@ -5,7 +5,7 @@ from telebot import types as tg_types
 
 from core.bot_instance import is_admin
 from core.config import load_config, save_config
-from core.helpers import normalize_proxy
+from core.helpers import normalize_proxy, check_proxy
 import core.playerok_connection as conn
 
 
@@ -35,10 +35,28 @@ def register(b):
         b.answer_callback_query(call.id, "🔍 Проверяю прокси...")
         cfg = load_config()
         proxy = cfg.get("playerok_proxy", "")
-        if proxy:
-            b.send_message(call.message.chat.id, f"✅ Прокси установлен: `{proxy}`", parse_mode="Markdown")
-        else:
+        if not proxy:
             b.send_message(call.message.chat.id, "❌ Прокси не установлен.")
+            return
+        waiting = b.send_message(call.message.chat.id, f"🔍 Проверяю `{proxy}`...", parse_mode="Markdown")
+        result = check_proxy(proxy)
+        if result["ok"]:
+            ip = result.get("ip", "?")
+            ms = result.get("ms", "?")
+            b.send_message(
+                call.message.chat.id,
+                f"✅ *Прокси работает!*\n\n"
+                f"🌐 IP: `{ip}`\n"
+                f"⚡ Скорость: {ms} мс",
+                parse_mode="Markdown",
+            )
+        else:
+            error = result.get("error", "Неизвестная ошибка")
+            b.send_message(
+                call.message.chat.id,
+                f"❌ *Прокси не работает!*\n\nОшибка: {error}",
+                parse_mode="Markdown",
+            )
 
     @b.callback_query_handler(func=lambda c: c.data.startswith("proxy_change:"))
     def cb_proxy_change(call):
@@ -242,14 +260,40 @@ def _process_proxy(b, message):
         cfg["playerok_proxy"] = ""
         save_config(cfg)
         b.send_message(message.chat.id, "✅ Прокси убран.")
+        return
+
+    if not text:
+        return
+
+    normalized = normalize_proxy(text)
+    cfg["playerok_proxy"] = normalized
+    save_config(cfg)
+
+    if normalized != text:
+        b.send_message(message.chat.id, f"🔄 Формат автоисправлен:\n`{normalized}`", parse_mode="Markdown")
+
+    waiting = b.send_message(message.chat.id, "🔍 Проверяю прокси...")
+    result = check_proxy(normalized)
+
+    if result["ok"]:
+        ip = result.get("ip", "?")
+        ms = result.get("ms", "?")
+        b.send_message(
+            message.chat.id,
+            f"✅ *Прокси работает!*\n\n"
+            f"🌐 IP: `{ip}`\n"
+            f"⚡ Скорость: {ms} мс",
+            parse_mode="Markdown",
+        )
     else:
-        normalized = normalize_proxy(text)
-        cfg["playerok_proxy"] = normalized
-        save_config(cfg)
-        if normalized != text:
-            b.send_message(message.chat.id, f"✅ Прокси установлен (автоисправлен):\n`{normalized}`", parse_mode="Markdown")
-        else:
-            b.send_message(message.chat.id, f"✅ Прокси установлен: `{normalized}`", parse_mode="Markdown")
+        error = result.get("error", "Неизвестная ошибка")
+        b.send_message(
+            message.chat.id,
+            f"❌ *Прокси не работает!*\n\n"
+            f"Ошибка: {error}\n\n"
+            "Прокси сохранён, но рекомендуется заменить.",
+            parse_mode="Markdown",
+        )
 
 
 def _process_user_agent(b, message, acc_name: str):
