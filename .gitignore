@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.log
+logs/
+accounts/
+playerok_config.json
+*.egg-info/
+dist/
+build/
+.pytest_cache/
