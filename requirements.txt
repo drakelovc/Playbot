@@ -1,0 +1,13 @@
+pyTelegramBotAPI>=4.14.0
+steampy>=1.1.0
+rsa>=4.9
+requests==2.32.3
+curl-cffi==0.13.0
+wrapper-tls-requests==1.1.4
+websocket-client==1.8.0
+tqdm
+selenium
+undetected-chromedriver
+psycopg2-binary>=2.9.9
+pytest>=7.0
+openpyxl>=3.1.0
