@@ -23,6 +23,13 @@ def register(b):
         b.answer_callback_query(call.id, "⏳ Загрузка чата...")
         _send_chat_detail(b, call.message.chat.id, chat_id_str)
 
+    @b.callback_query_handler(func=lambda c: c.data == "back_chats_list")
+    def cb_back_chats(call):
+        if not is_admin(call.from_user.id):
+            return
+        b.answer_callback_query(call.id)
+        _send_chats(b, call.message.chat.id)
+
 
 def _send_chats(b, chat_id: int):
     text = "💬 *Мои чаты*\n\n"
