@@ -29,7 +29,12 @@ def register(b):
         if not is_admin(call.from_user.id):
             return
         b.answer_callback_query(call.id)
+        cfg = load_config()
+        proxy = cfg.get("playerok_proxy", "")
+        proxy_label = f"🌐 Прокси: ✅ {proxy}" if proxy else "🌐 Прокси: ❌ не установлен"
+
         kb = tg_types.InlineKeyboardMarkup()
+        kb.add(tg_types.InlineKeyboardButton(proxy_label, callback_data="pre_login_proxy"))
         kb.row(
             tg_types.InlineKeyboardButton("🔑 Вход через токен", callback_data="login_token"),
             tg_types.InlineKeyboardButton("📧 Вход через почту", callback_data="login_email"),
@@ -39,6 +44,7 @@ def register(b):
         b.send_message(
             call.message.chat.id,
             "🎮 *Добавить аккаунт Playerok*\n\n"
+            "⚠️ Если Playerok недоступен без прокси — настройте его перед входом.\n\n"
             "Выберите способ входа:",
             parse_mode="Markdown",
             reply_markup=kb,
@@ -108,6 +114,26 @@ def register(b):
             reply_markup=kb,
         )
         b.register_next_step_handler(msg, lambda m: _step_email_entered(b, m))
+
+    # ── Прокси до входа ─────────────────────────────────────────────
+
+    @b.callback_query_handler(func=lambda c: c.data == "pre_login_proxy")
+    def cb_pre_login_proxy(call):
+        if not is_admin(call.from_user.id):
+            return
+        b.answer_callback_query(call.id)
+        cfg = load_config()
+        proxy = cfg.get("playerok_proxy", "")
+        if proxy:
+            text = f"🌐 *Текущий прокси:*\n`{proxy}`\n\nВведите новый или `0` чтобы убрать:"
+        else:
+            text = "🌐 *Прокси не установлен*\n\nВведите прокси в формате:\n`http://user:pass@ip:port`\n\nИли `0` чтобы пропустить:"
+        kb = tg_types.InlineKeyboardMarkup()
+        kb.add(tg_types.InlineKeyboardButton("❌ Отмена", callback_data="add_account"))
+        msg = b.send_message(call.message.chat.id, text, parse_mode="Markdown", reply_markup=kb)
+        b.register_next_step_handler(msg, lambda m: _process_pre_login_proxy(b, m))
+
+    # ── Переотправка кода ─────────────────────────────────────────
 
     @b.callback_query_handler(func=lambda c: c.data == "resend_code")
     def cb_resend_code(call):
@@ -192,6 +218,46 @@ def _send_account_menu(b, chat_id: int, acc_name: str):
     kb.add(tg_types.InlineKeyboardButton("🧩 Модули", callback_data=f"acc_modules:{acc_name}"))
     kb.add(tg_types.InlineKeyboardButton("↩️ Назад к аккаунтам", callback_data="back_accounts"))
     b.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
+
+
+# ── Обработка: прокси до входа ───────────────────────────────────────
+
+def _process_pre_login_proxy(b, message):
+    text = (message.text or "").strip()
+    cfg = load_config()
+    if text == "0":
+        cfg["playerok_proxy"] = ""
+        save_config(cfg)
+        b.send_message(message.chat.id, "✅ Прокси убран.")
+    elif text:
+        cfg["playerok_proxy"] = text
+        save_config(cfg)
+        b.send_message(message.chat.id, f"✅ Прокси установлен:\n`{text}`", parse_mode="Markdown")
+    # Возвращаем к экрану добавления аккаунта
+    _send_add_account(b, message.chat.id)
+
+
+def _send_add_account(b, chat_id: int):
+    cfg = load_config()
+    proxy = cfg.get("playerok_proxy", "")
+    proxy_label = f"🌐 Прокси: ✅ {proxy}" if proxy else "🌐 Прокси: ❌ не установлен"
+
+    kb = tg_types.InlineKeyboardMarkup()
+    kb.add(tg_types.InlineKeyboardButton(proxy_label, callback_data="pre_login_proxy"))
+    kb.row(
+        tg_types.InlineKeyboardButton("🔑 Вход через токен", callback_data="login_token"),
+        tg_types.InlineKeyboardButton("📧 Вход через почту", callback_data="login_email"),
+    )
+    kb.add(tg_types.InlineKeyboardButton("🍪 Ввести куки вручную", callback_data="login_cookies"))
+    kb.add(tg_types.InlineKeyboardButton("↩️ Назад к аккаунтам", callback_data="back_accounts"))
+    b.send_message(
+        chat_id,
+        "🎮 *Добавить аккаунт Playerok*\n\n"
+        "⚠️ Если Playerok недоступен без прокси — настройте его перед входом.\n\n"
+        "Выберите способ входа:",
+        parse_mode="Markdown",
+        reply_markup=kb,
+    )
 
 
 # ── Обработка: ввод токена ───────────────────────────────────────────
