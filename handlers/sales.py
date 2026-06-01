@@ -25,6 +25,13 @@ def register(b):
         b.answer_callback_query(call.id, "⏳ Загрузка...")
         _send_sales_by_status(b, call.message.chat.id, status, acc_name)
 
+    @b.callback_query_handler(func=lambda c: c.data == "back_sales_menu")
+    def cb_back_sales(call):
+        if not is_admin(call.from_user.id):
+            return
+        b.answer_callback_query(call.id)
+        _send_sales(b, call.message.chat.id)
+
 
 def _send_sales(b, chat_id: int):
     text = (
@@ -52,10 +59,3 @@ def _send_sales_by_status(b, chat_id: int, status: str, acc_name: str):
     kb = tg_types.InlineKeyboardMarkup()
     kb.add(tg_types.InlineKeyboardButton("↩️ Назад", callback_data="back_sales_menu"))
     b.send_message(chat_id, text, parse_mode="Markdown", reply_markup=kb)
-
-    @b.callback_query_handler(func=lambda c: c.data == "back_sales_menu")
-    def cb_back_sales(call):
-        if not is_admin(call.from_user.id):
-            return
-        b.answer_callback_query(call.id)
-        _send_sales(b, call.message.chat.id)

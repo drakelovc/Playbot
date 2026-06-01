@@ -96,6 +96,20 @@ def register(b):
             "💰 Введите сумму для перевода реферального баланса:",
         )
 
+    @b.callback_query_handler(func=lambda c: c.data == "ref_menu")
+    def cb_ref_menu(call):
+        if not is_admin(call.from_user.id):
+            return
+        b.answer_callback_query(call.id)
+        _send_referral(b, call.message.chat.id)
+
+    @b.callback_query_handler(func=lambda c: c.data == "sub_menu")
+    def cb_sub_menu(call):
+        if not is_admin(call.from_user.id):
+            return
+        b.answer_callback_query(call.id)
+        _send_subscription(b, call.message.chat.id)
+
 
 def _send_profile(b, chat_id: int):
     status = conn.playerok_status
