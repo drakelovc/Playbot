@@ -5,6 +5,7 @@ from telebot import types as tg_types
 
 from core.bot_instance import is_admin
 from core.config import load_config, save_config
+from core.helpers import normalize_proxy
 import core.playerok_connection as conn
 
 
@@ -242,9 +243,13 @@ def _process_proxy(b, message):
         save_config(cfg)
         b.send_message(message.chat.id, "✅ Прокси убран.")
     else:
-        cfg["playerok_proxy"] = text
+        normalized = normalize_proxy(text)
+        cfg["playerok_proxy"] = normalized
         save_config(cfg)
-        b.send_message(message.chat.id, f"✅ Прокси установлен: `{text}`", parse_mode="Markdown")
+        if normalized != text:
+            b.send_message(message.chat.id, f"✅ Прокси установлен (автоисправлен):\n`{normalized}`", parse_mode="Markdown")
+        else:
+            b.send_message(message.chat.id, f"✅ Прокси установлен: `{normalized}`", parse_mode="Markdown")
 
 
 def _process_user_agent(b, message, acc_name: str):

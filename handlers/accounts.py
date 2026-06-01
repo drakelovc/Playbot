@@ -7,6 +7,7 @@ from telebot import types as tg_types
 
 from core.bot_instance import is_admin, main_keyboard
 from core.config import load_config, save_config
+from core.helpers import normalize_proxy
 import core.playerok_connection as conn
 from core.playerok_auth import send_sign_in_code, confirm_sign_in_code
 
@@ -230,9 +231,13 @@ def _process_pre_login_proxy(b, message):
         save_config(cfg)
         b.send_message(message.chat.id, "✅ Прокси убран.")
     elif text:
-        cfg["playerok_proxy"] = text
+        normalized = normalize_proxy(text)
+        cfg["playerok_proxy"] = normalized
         save_config(cfg)
-        b.send_message(message.chat.id, f"✅ Прокси установлен:\n`{text}`", parse_mode="Markdown")
+        if normalized != text:
+            b.send_message(message.chat.id, f"✅ Прокси установлен (автоисправлен):\n`{normalized}`", parse_mode="Markdown")
+        else:
+            b.send_message(message.chat.id, f"✅ Прокси установлен:\n`{normalized}`", parse_mode="Markdown")
     # Возвращаем к экрану добавления аккаунта
     _send_add_account(b, message.chat.id)
 
