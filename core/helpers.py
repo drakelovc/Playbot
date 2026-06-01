@@ -1,10 +1,14 @@
 """Вспомогательные функции: daily summary, аналитика, фильтрация истории."""
 from __future__ import annotations
 
+import logging
 import re
+import time
 from datetime import datetime, timedelta
 
 from core.config import load_config
+
+log = logging.getLogger("playerok_bot.helpers")
 
 
 def normalize_proxy(raw: str) -> str:
@@ -52,6 +56,49 @@ def normalize_proxy(raw: str) -> str:
     if not scheme:
         scheme = "http://"
     return f"{scheme}{s}"
+
+
+def check_proxy(proxy_url: str) -> dict:
+    """Проверяет работоспособность прокси.
+
+    Returns:
+        {"ok": True, "ip": "1.2.3.4", "country": "RU", "ms": 450}
+        {"ok": False, "error": "Connection refused"}
+    """
+    if not proxy_url:
+        return {"ok": False, "error": "Прокси не задан"}
+
+    normalized = normalize_proxy(proxy_url)
+
+    try:
+        import requests
+        start = time.time()
+        resp = requests.get(
+            "https://httpbin.org/ip",
+            proxies={"http": normalized, "https": normalized},
+            timeout=15,
+        )
+        elapsed_ms = int((time.time() - start) * 1000)
+
+        if resp.status_code == 200:
+            data = resp.json()
+            ip = data.get("origin", "?")
+            return {"ok": True, "ip": ip, "ms": elapsed_ms}
+        else:
+            return {"ok": False, "error": f"HTTP {resp.status_code}"}
+    except requests.exceptions.ProxyError as exc:
+        msg = str(exc)
+        if "407" in msg:
+            return {"ok": False, "error": "407 — прокси отклонил авторизацию (неверный логин/пароль)"}
+        if "403" in msg:
+            return {"ok": False, "error": "403 — прокси заблокирован"}
+        return {"ok": False, "error": f"Прокси ошибка: {msg[:150]}"}
+    except requests.exceptions.ConnectTimeout:
+        return {"ok": False, "error": "Таймаут — прокси не отвечает (15 сек)"}
+    except requests.exceptions.ConnectionError as exc:
+        return {"ok": False, "error": f"Не удалось подключиться: {str(exc)[:150]}"}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)[:200]}
 
 
 def filter_history_by_period(history: list, period: str) -> list:
